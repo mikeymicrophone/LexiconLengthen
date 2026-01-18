@@ -15,6 +15,7 @@ struct DictionaryTab: View {
     @State private var searchText = ""
     @State private var selectedWord: Word?
     @State private var showingAddWord = false
+    @State private var showingTopics = false
 
     var filteredSpellings: [Spelling] {
         if searchText.isEmpty {
@@ -43,10 +44,18 @@ struct DictionaryTab: View {
             .navigationTitle("Dictionary")
             .searchable(text: $searchText, prompt: "Search words")
             .toolbar {
-                Button {
-                    showingAddWord = true
-                } label: {
-                    Label("Add Word", systemImage: "plus")
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        showingTopics = true
+                    } label: {
+                        Label("Topics", systemImage: "tag")
+                    }
+
+                    Button {
+                        showingAddWord = true
+                    } label: {
+                        Label("Add Word", systemImage: "plus")
+                    }
                 }
             }
         } detail: {
@@ -64,6 +73,9 @@ struct DictionaryTab: View {
             AddWordSheet(existingSpellings: spellings) { newWord in
                 selectedWord = newWord
             }
+        }
+        .sheet(isPresented: $showingTopics) {
+            TopicsView()
         }
     }
 }
