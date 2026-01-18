@@ -6,10 +6,15 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct WordDetailView: View {
     let word: Word
     @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var readingMastery: WordReadingMastery?
+    @State private var writingMastery: WordWritingMastery?
 
     var body: some View {
         ScrollView {
@@ -51,6 +56,30 @@ struct WordDetailView: View {
                 }
 
                 Divider()
+
+                // Reading & Writing
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Reading & Writing")
+                        .font(.headline)
+
+                    literacyRow(
+                        title: "Reading",
+                        masteryDescription: readingMastery?.masteryLevelDescription ?? "Not Started",
+                        correctCount: readingMastery?.correctCount ?? 0,
+                        incorrectCount: readingMastery?.incorrectCount ?? 0,
+                        onCorrect: { recordReading(correct: true) },
+                        onIncorrect: { recordReading(correct: false) }
+                    )
+
+                    literacyRow(
+                        title: "Writing",
+                        masteryDescription: writingMastery?.masteryLevelDescription ?? "Not Started",
+                        correctCount: writingMastery?.correctCount ?? 0,
+                        incorrectCount: writingMastery?.incorrectCount ?? 0,
+                        onCorrect: { recordWriting(correct: true) },
+                        onIncorrect: { recordWriting(correct: false) }
+                    )
+                }
 
                 // Pronunciations
                 if !word.pronunciations.isEmpty {
@@ -193,6 +222,107 @@ struct WordDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: word.id) { _, _ in
             audioManager.stopPlayback()
+            loadMastery()
         }
+        .task {
+            loadMastery()
+        }
+    }
+
+    private func loadMastery() {
+        let wordID = word.persistentModelID.storeIdentifier ?? ""
+        guard !wordID.isEmpty else {
+            readingMastery = nil
+            writingMastery = nil
+            return
+        }
+
+        let readingDescriptor = FetchDescriptor<WordReadingMastery>(
+            predicate: #Predicate { $0.wordID == wordID }
+        )
+        readingMastery = (try? modelContext.fetch(readingDescriptor))?.first
+
+        let writingDescriptor = FetchDescriptor<WordWritingMastery>(
+            predicate: #Predicate { $0.wordID == wordID }
+        )
+        writingMastery = (try? modelContext.fetch(writingDescriptor))?.first
+    }
+
+    private func recordReading(correct: Bool) {
+        let mastery = readingMastery ?? makeReadingMastery()
+        mastery.recordAttempt(correct: correct)
+        readingMastery = mastery
+        try? modelContext.save()
+    }
+
+    private func recordWriting(correct: Bool) {
+        let mastery = writingMastery ?? makeWritingMastery()
+        mastery.recordAttempt(correct: correct)
+        writingMastery = mastery
+        try? modelContext.save()
+    }
+
+    private func makeReadingMastery() -> WordReadingMastery {
+        let wordID = word.persistentModelID.storeIdentifier ?? ""
+        let mastery = WordReadingMastery(
+            wordID: wordID,
+            wordSpellingText: word.spellingText,
+            wordLetterCount: word.letterCount
+        )
+        modelContext.insert(mastery)
+        return mastery
+    }
+
+    private func makeWritingMastery() -> WordWritingMastery {
+        let wordID = word.persistentModelID.storeIdentifier ?? ""
+        let mastery = WordWritingMastery(
+            wordID: wordID,
+            wordSpellingText: word.spellingText,
+            wordLetterCount: word.letterCount
+        )
+        modelContext.insert(mastery)
+        return mastery
+    }
+
+    @ViewBuilder
+    private func literacyRow(
+        title: String,
+        masteryDescription: String,
+        correctCount: Int,
+        incorrectCount: Int,
+        onCorrect: @escaping () -> Void,
+        onIncorrect: @escaping () -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title)
+                    .font(.subheadline.bold())
+                Spacer()
+                Text(masteryDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 12) {
+                Button("Correct") {
+                    onCorrect()
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button("Missed") {
+                    onIncorrect()
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Text("\(correctCount) correct • \(incorrectCount) missed")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(.secondary.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }

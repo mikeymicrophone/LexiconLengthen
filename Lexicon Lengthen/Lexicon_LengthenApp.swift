@@ -27,6 +27,8 @@ struct Lexicon_LengthenApp: App {
             UserProfile.self,
             DefinitionMastery.self,
             PronunciationMastery.self,
+            WordReadingMastery.self,
+            WordWritingMastery.self,
             UserSentence.self,
             UserTopicPreference.self,
 

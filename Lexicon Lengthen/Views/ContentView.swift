@@ -85,6 +85,8 @@ struct ContentView: View {
             UserProfile.self,
             DefinitionMastery.self,
             PronunciationMastery.self,
+            WordReadingMastery.self,
+            WordWritingMastery.self,
             UserSentence.self,
             UserTopicPreference.self,
             UserSubmission.self,
