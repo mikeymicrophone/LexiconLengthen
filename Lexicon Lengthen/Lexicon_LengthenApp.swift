@@ -12,9 +12,33 @@ import SwiftData
 struct Lexicon_LengthenApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            // Public models (shared dictionary)
+            Language.self,
+            Spelling.self,
+            Word.self,
+            Definition.self,
+            AccentDialect.self,
+            Pronunciation.self,
+            Topic.self,
+            WordTopic.self,
+            SentenceTemplate.self,
+
+            // Private models (user data)
+            UserProfile.self,
+            DefinitionMastery.self,
+            PronunciationMastery.self,
+            UserSentence.self,
+            UserTopicPreference.self,
+
+            // Submission models (moderation)
+            UserSubmission.self,
+            AISuggestion.self
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+
+        let modelConfiguration = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false
+        )
 
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
@@ -23,9 +47,12 @@ struct Lexicon_LengthenApp: App {
         }
     }()
 
+    @StateObject private var audioManager = AudioManager()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(audioManager)
         }
         .modelContainer(sharedModelContainer)
     }
