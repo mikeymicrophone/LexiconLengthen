@@ -24,7 +24,11 @@ struct TopicWordSuggestionBatch: Equatable {
 actor TopicWordSuggestionService {
     static let shared = TopicWordSuggestionService()
 
-    func suggestWords(for topicName: String) async throws -> [TopicWordSuggestion] {
+    func suggestWords(
+        for topicName: String,
+        avoiding existingWords: [String],
+        preferSentenceWith sentenceAnchors: [String]
+    ) async throws -> [TopicWordSuggestion] {
         let model = SystemLanguageModel(useCase: .general)
         switch model.availability {
         case .available:
@@ -34,11 +38,32 @@ actor TopicWordSuggestionService {
         }
 
         let session = LanguageModelSession(model: model)
-        let prompt = """
-        Suggest 4 distinct English words that fit the topic "\(topicName)".
-        Provide a part of speech (noun, verb, adjective, or adverb) and a full definition.
-        Avoid proper nouns and invented terms.
-        """
+        let avoidList = existingWords
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .prefix(80)
+        let anchorList = sentenceAnchors
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .prefix(12)
+
+        var promptParts: [String] = [
+            "Suggest 4 distinct English words that fit the topic \"\(topicName)\".",
+            "Provide a part of speech (noun, verb, adjective, or adverb) and a full definition.",
+            "Avoid proper nouns and invented terms. Use lowercase unless capitalization is grammatically required.",
+            "Return exactly 4 unique words."
+        ]
+
+        if !anchorList.isEmpty {
+            let anchors = anchorList.joined(separator: ", ")
+            promptParts.append("Prefer words that can form natural sentences with: \(anchors).")
+        }
+        if !avoidList.isEmpty {
+            let avoids = avoidList.joined(separator: ", ")
+            promptParts.append("Do not use any of these words: \(avoids).")
+        }
+
+        let prompt = promptParts.joined(separator: "\n")
         let response = try await session.respond(to: prompt, generating: TopicWordSuggestionBatch.self)
         return response.content.words
     }

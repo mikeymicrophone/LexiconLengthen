@@ -10,6 +10,7 @@ import SwiftData
 
 struct TopicDetailView: View {
     @Environment(\.modelContext) private var modelContext
+    @Query private var allWords: [Word]
 
     let topic: Topic
     @State private var showingAddWord = false
@@ -108,10 +109,23 @@ struct TopicDetailView: View {
 
         Task {
             do {
-                let suggestions = try await TopicWordSuggestionService.shared.suggestWords(for: topic.name)
+                let existingWordSet = Set(allWords.compactMap {
+                    let text = $0.spellingText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    return text.isEmpty ? nil : text.lowercased()
+                })
+                let existingWords = buildWordList(from: allWords, limit: 80)
+                let anchors = buildWordList(from: topic.words, limit: 12)
+                let sentenceAnchors = anchors.isEmpty ? buildWordList(from: allWords, limit: 12) : anchors
+
+                let suggestions = try await TopicWordSuggestionService.shared.suggestWords(
+                    for: topic.name,
+                    avoiding: existingWords,
+                    preferSentenceWith: sentenceAnchors
+                )
+                let filtered = filterSuggestions(suggestions, existingWordSet: existingWordSet)
                 await MainActor.run {
-                    lastSuggestions = suggestions
-                    applySuggestions(suggestions)
+                    lastSuggestions = filtered
+                    applySuggestions(filtered)
                     isGeneratingSuggestions = false
                 }
             } catch {
@@ -171,5 +185,40 @@ struct TopicDetailView: View {
         }
 
         try? modelContext.save()
+    }
+
+    private func buildWordList(from words: [Word], limit: Int) -> [String] {
+        var seen: Set<String> = []
+        var result: [String] = []
+        for word in words {
+            let text = word.spellingText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { continue }
+            let key = text.lowercased()
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
+            result.append(text)
+            if result.count >= limit {
+                break
+            }
+        }
+        return result
+    }
+
+    private func filterSuggestions(
+        _ suggestions: [TopicWordSuggestion],
+        existingWordSet: Set<String>
+    ) -> [TopicWordSuggestion] {
+        var seen: Set<String> = []
+        var filtered: [TopicWordSuggestion] = []
+        for suggestion in suggestions {
+            let text = suggestion.word.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { continue }
+            let key = text.lowercased()
+            guard !existingWordSet.contains(key) else { continue }
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
+            filtered.append(suggestion)
+        }
+        return filtered
     }
 }
