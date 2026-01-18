@@ -107,6 +107,19 @@ struct WordDetailView: View {
 
                                     Text(definition.definitionText)
                                         .font(.body)
+
+                                    Spacer()
+
+                                    Button {
+                                        if audioManager.isPlaying {
+                                            audioManager.stopPlayback()
+                                        } else {
+                                            audioManager.speakText(definition.definitionText)
+                                        }
+                                    } label: {
+                                        Image(systemName: audioManager.isPlaying ? "stop.circle.fill" : "speaker.wave.2.fill")
+                                    }
+                                    .accessibilityLabel("Speak definition")
                                 }
 
                                 if let example = definition.exampleSentence {
