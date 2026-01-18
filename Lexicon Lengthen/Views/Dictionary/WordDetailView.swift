@@ -33,6 +33,20 @@ struct WordDetailView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+
+                        Spacer()
+
+                        Button {
+                            if audioManager.isPlaying {
+                                audioManager.stopPlayback()
+                            } else {
+                                audioManager.speakText(word.spellingText)
+                            }
+                        } label: {
+                            Image(systemName: audioManager.isPlaying ? "stop.circle.fill" : "speaker.wave.2.fill")
+                                .font(.title3)
+                        }
+                        .accessibilityLabel("Speak word")
                     }
                 }
 
@@ -164,5 +178,8 @@ struct WordDetailView: View {
         }
         .navigationTitle(word.spellingText)
         .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: word.id) { _, _ in
+            audioManager.stopPlayback()
+        }
     }
 }

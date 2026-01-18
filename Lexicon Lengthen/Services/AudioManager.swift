@@ -121,6 +121,7 @@ final class AudioManager: NSObject, ObservableObject {
         stopPlayback()
 
         speechSynthesizer = AVSpeechSynthesizer()
+        speechSynthesizer?.delegate = self
 
         let utterance = AVSpeechUtterance(string: text)
         utterance.rate = rate
@@ -316,6 +317,22 @@ extension AudioManager: AVAudioRecorderDelegate {
     nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
         Task { @MainActor in
             isRecording = false
+        }
+    }
+}
+
+// MARK: - AVSpeechSynthesizerDelegate
+
+extension AudioManager: AVSpeechSynthesizerDelegate {
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor in
+            isPlaying = false
+        }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        Task { @MainActor in
+            isPlaying = false
         }
     }
 }
