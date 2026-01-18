@@ -10,30 +10,37 @@ import Foundation
 actor PartOfSpeechResolver {
     static let shared = PartOfSpeechResolver()
 
-    private var cache: [String: String] = [:]
+    private var cache: [String: WordLookupSuggestion] = [:]
 
-    func suggest(for word: String) async -> String? {
+    func lookup(for word: String) async -> WordLookupSuggestion {
         let trimmed = word.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard trimmed.count >= 2 else { return nil }
+        guard trimmed.count >= 2 else {
+            return WordLookupSuggestion(partOfSpeech: nil, ipa: nil)
+        }
 
         if let cached = cache[trimmed] {
             return cached
         }
 
         guard let url = makeDatamuseURL(for: trimmed) else {
-            return nil
+            return WordLookupSuggestion(partOfSpeech: nil, ipa: nil)
         }
 
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             let entries = try JSONDecoder().decode([DatamuseEntry].self, from: data)
-            let suggestion = entries.compactMap { mapTags($0.tags) }.first
-            if let suggestion {
-                cache[trimmed] = suggestion
+            for entry in entries {
+                let partOfSpeech = mapTags(entry.tags)
+                let ipa = normalizeIpa(entry.pron?.value)
+                if partOfSpeech != nil || ipa != nil {
+                    let suggestion = WordLookupSuggestion(partOfSpeech: partOfSpeech, ipa: ipa)
+                    cache[trimmed] = suggestion
+                    return suggestion
+                }
             }
-            return suggestion
+            return WordLookupSuggestion(partOfSpeech: nil, ipa: nil)
         } catch {
-            return nil
+            return WordLookupSuggestion(partOfSpeech: nil, ipa: nil)
         }
     }
 
@@ -41,7 +48,7 @@ actor PartOfSpeechResolver {
         var components = URLComponents(string: "https://api.datamuse.com/words")
         components?.queryItems = [
             URLQueryItem(name: "sp", value: word),
-            URLQueryItem(name: "md", value: "p"),
+            URLQueryItem(name: "md", value: "rp"),
             URLQueryItem(name: "max", value: "1")
         ]
         return components?.url
@@ -55,8 +62,41 @@ actor PartOfSpeechResolver {
         if tags.contains("adv") { return "adverb" }
         return nil
     }
+
+    private func normalizeIpa(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.contains("/") {
+            return trimmed
+        }
+        return "/\(trimmed)/"
+    }
+}
+
+struct WordLookupSuggestion: Equatable {
+    let partOfSpeech: String?
+    let ipa: String?
 }
 
 private struct DatamuseEntry: Decodable {
     let tags: [String]?
+    let pron: DatamusePronunciation?
+}
+
+private struct DatamusePronunciation: Decodable {
+    let value: String?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let string = try? container.decode(String.self) {
+            value = string
+            return
+        }
+        if let dict = try? container.decode([String: String].self) {
+            value = dict["ipa"] ?? dict["pron"] ?? dict["phonetic"]
+            return
+        }
+        value = nil
+    }
 }
