@@ -11,6 +11,7 @@ import SwiftData
 struct TopicDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var allWords: [Word]
+    @Query private var lexiconEntries: [UserLexiconEntry]
 
     let topic: Topic
     @State private var showingAddWord = false
@@ -142,6 +143,7 @@ struct TopicDetailView: View {
         let descriptor = FetchDescriptor<Spelling>()
         let existingSpellings = (try? modelContext.fetch(descriptor)) ?? []
         var spellingByLower = Dictionary(uniqueKeysWithValues: existingSpellings.map { ($0.textLowercase, $0) })
+        var lexiconWordIDs = Set(lexiconEntries.compactMap { $0.word?.id })
 
         for suggestion in suggestions {
             let spellingText = suggestion.word.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -163,6 +165,7 @@ struct TopicDetailView: View {
             if word.modelContext == nil {
                 modelContext.insert(word)
             }
+            ensureLexiconEntry(for: word, existingIDs: &lexiconWordIDs)
 
             let definitionText = suggestion.definition.trimmingCharacters(in: .whitespacesAndNewlines)
             if !definitionText.isEmpty {
@@ -185,6 +188,24 @@ struct TopicDetailView: View {
         }
 
         try? modelContext.save()
+
+        Task {
+            for suggestion in suggestions {
+                let spellingText = suggestion.word.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !spellingText.isEmpty else { continue }
+                if let word = allWords.first(where: { $0.spellingText.caseInsensitiveCompare(spellingText) == .orderedSame }) {
+                    await LexemeGroupDiscoveryService.discoverRelatedForms(for: word, in: modelContext)
+                }
+            }
+        }
+    }
+
+    private func ensureLexiconEntry(for word: Word, existingIDs: inout Set<Word.ID>) {
+        let wordID = word.persistentModelID.storeIdentifier ?? ""
+        guard !existingIDs.contains(word.id) else { return }
+        existingIDs.insert(word.id)
+        let entry = UserLexiconEntry(wordID: wordID, word: word)
+        modelContext.insert(entry)
     }
 
     private func buildWordList(from words: [Word], limit: Int) -> [String] {

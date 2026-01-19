@@ -125,6 +125,7 @@ struct AddWordSheet: View {
 
         let word = Word(spelling: spelling, partOfSpeech: partOfSpeech)
         modelContext.insert(word)
+        ensureLexiconEntry(for: word)
 
         if !trimmedDefinition.isEmpty {
             let definition = Definition(word: word, definitionText: trimmedDefinition, sortOrder: 0)
@@ -139,6 +140,23 @@ struct AddWordSheet: View {
         try? modelContext.save()
         onSave(word)
         dismiss()
+
+        Task {
+            await LexemeGroupDiscoveryService.discoverRelatedForms(for: word, in: modelContext)
+        }
+    }
+
+    private func ensureLexiconEntry(for word: Word) {
+        let wordID = word.persistentModelID.storeIdentifier ?? ""
+        let descriptor = FetchDescriptor<UserLexiconEntry>(
+            predicate: #Predicate { $0.wordID == wordID }
+        )
+        let existingByID = (try? modelContext.fetch(descriptor)) ?? []
+        if existingByID.contains(where: { $0.word?.id == word.id }) {
+            return
+        }
+        let entry = UserLexiconEntry(wordID: wordID, word: word)
+        modelContext.insert(entry)
     }
 
     private func scheduleLookup() {

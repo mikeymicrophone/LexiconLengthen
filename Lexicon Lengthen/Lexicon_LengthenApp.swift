@@ -16,6 +16,7 @@ struct Lexicon_LengthenApp: App {
             Language.self,
             Spelling.self,
             Word.self,
+            LexemeGroup.self,
             Definition.self,
             AccentDialect.self,
             Pronunciation.self,
@@ -29,6 +30,7 @@ struct Lexicon_LengthenApp: App {
             PronunciationMastery.self,
             WordReadingMastery.self,
             WordWritingMastery.self,
+            UserLexiconEntry.self,
             UserSentence.self,
             UserTopicPreference.self,
 

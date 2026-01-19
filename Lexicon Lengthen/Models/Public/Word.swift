@@ -48,8 +48,12 @@ final class Word {
     @Relationship(deleteRule: .cascade, inverse: \WordTopic.word)
     var wordTopics: [WordTopic] = []
 
+    /// Lexeme group that connects derivationally related words
+    var lexemeGroup: LexemeGroup?
+
     init(
         spelling: Spelling? = nil,
+        lexemeGroup: LexemeGroup? = nil,
         partOfSpeech: String,
         etymology: String? = nil,
         frequency: Double = 0.5,
@@ -58,6 +62,7 @@ final class Word {
         sourceType: String = "user"
     ) {
         self.spelling = spelling
+        self.lexemeGroup = lexemeGroup
         self.partOfSpeech = partOfSpeech
         self.etymology = etymology
         self.frequency = frequency

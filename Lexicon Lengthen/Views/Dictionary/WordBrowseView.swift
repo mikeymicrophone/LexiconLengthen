@@ -10,15 +10,19 @@ import SwiftData
 
 struct WordBrowseView: View {
     @Environment(\.dismiss) private var dismiss
-    @Query private var words: [Word]
+    @Query private var lexiconEntries: [UserLexiconEntry]
 
     @State private var useRandomOrder = false
     @State private var useUppercase = false
     @State private var randomOrder: [Word.ID] = []
     @State private var currentWordID: Word.ID?
 
+    private var lexiconWords: [Word] {
+        lexiconEntries.compactMap { $0.word }
+    }
+
     private var sortedWordIDs: [Word.ID] {
-        words
+        lexiconWords
             .sorted {
                 let left = $0.spellingText.localizedCaseInsensitiveCompare($1.spellingText)
                 if left != .orderedSame {
@@ -31,7 +35,7 @@ struct WordBrowseView: View {
     }
 
     private var wordsByID: [Word.ID: Word] {
-        Dictionary(uniqueKeysWithValues: words.map { ($0.id, $0) })
+        Dictionary(uniqueKeysWithValues: lexiconWords.map { ($0.id, $0) })
     }
 
     private var activeOrder: [Word.ID] {

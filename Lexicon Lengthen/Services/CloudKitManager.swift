@@ -259,6 +259,7 @@ extension CloudKitManager {
             Language.self,
             Spelling.self,
             Word.self,
+            LexemeGroup.self,
             Definition.self,
             AccentDialect.self,
             Pronunciation.self,
@@ -270,6 +271,7 @@ extension CloudKitManager {
             UserProfile.self,
             DefinitionMastery.self,
             PronunciationMastery.self,
+            UserLexiconEntry.self,
             UserSentence.self,
             UserTopicPreference.self,
 

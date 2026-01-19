@@ -10,6 +10,7 @@ import SwiftData
 
 struct SentenceBuilderView: View {
     @Query(sort: \Word.createdAt, order: .reverse) private var words: [Word]
+    @Query private var lexiconEntries: [UserLexiconEntry]
     @Query(sort: \SentenceTemplate.createdAt, order: .reverse) private var templates: [SentenceTemplate]
 
     @State private var selectedTemplateID: String?
@@ -49,8 +50,9 @@ struct SentenceBuilderView: View {
 
     private var filteredWords: [Word] {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pool = availableWords
         let slotFilter = activeSlotCategory
-        return words.filter { word in
+        return pool.filter { word in
             let matchesSearch = trimmed.isEmpty ||
             word.spellingText.localizedCaseInsensitiveContains(trimmed) ||
             word.partOfSpeech.localizedCaseInsensitiveContains(trimmed)
@@ -66,6 +68,24 @@ struct SentenceBuilderView: View {
             return displayWord(for: word, slotLabel: slotLabel)
         }
         return template.fill(with: words)
+    }
+
+    private var lexiconWords: [Word] {
+        lexiconEntries.compactMap { $0.word }
+    }
+
+    private var availableWords: [Word] {
+        let base = lexiconWords
+        guard let category = activeSlotCategory, category == .adjective || category == .adverb else {
+            return base
+        }
+
+        var expanded = base
+        let groupWords = base.compactMap { $0.lexemeGroup?.words }.flatMap { $0 }
+        for word in groupWords where !expanded.contains(where: { $0.id == word.id }) {
+            expanded.append(word)
+        }
+        return expanded
     }
 
     private var activeSlotCategory: SlotCategory? {
@@ -278,8 +298,8 @@ struct SentenceBuilderView: View {
 
     private func slotCategory(for label: String) -> SlotCategory? {
         let normalized = label.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if normalized.contains("verb") { return .verb }
         if normalized.contains("adverb") { return .adverb }
+        if normalized.contains("verb") { return .verb }
         if normalized.contains("adj") { return .adjective }
         if normalized.contains("subject") || normalized.contains("object") || normalized.contains("noun") {
             return .noun
@@ -298,7 +318,8 @@ struct SentenceBuilderView: View {
         case .adjective:
             return pos.contains("adjective") || pos.contains("adj")
         case .adverb:
-            return pos.contains("adverb") || pos.contains("adv")
+            return pos.contains("adverb") || pos.contains("adv") ||
+            pos.contains("adjective") || pos.contains("adj")
         }
     }
 
@@ -315,8 +336,10 @@ struct SentenceBuilderView: View {
         guard let template = selectedTemplate else { return nil }
         for (index, slot) in template.slots.enumerated() {
             let label = slot.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            if label.contains("subject"), let word = slotAssignments[safe: index] ?? nil {
-                return word.spellingText
+            if label.contains("subject"),
+               let word = slotAssignments[safe: index],
+               let resolved = word {
+                return resolved.spellingText
             }
         }
         return nil
