@@ -19,6 +19,7 @@ struct DictionaryTab: View {
     @State private var showingTopics = false
     @State private var showingBrowse = false
     @State private var showingLibrary = false
+    @State private var showingPreferences = false
 
     private var lexiconWordIDs: Set<Word.ID> {
         Set(lexiconEntries.compactMap { $0.word?.id })
@@ -71,6 +72,12 @@ struct DictionaryTab: View {
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
+                        showingPreferences = true
+                    } label: {
+                        Label("Preferences", systemImage: "gearshape")
+                    }
+
+                    Button {
                         showingLibrary = true
                     } label: {
                         Label("Library", systemImage: "books.vertical")
@@ -119,6 +126,9 @@ struct DictionaryTab: View {
         }
         .sheet(isPresented: $showingLibrary) {
             DeviceWordLibraryView()
+        }
+        .sheet(isPresented: $showingPreferences) {
+            DictionaryPreferencesView()
         }
     }
 }
