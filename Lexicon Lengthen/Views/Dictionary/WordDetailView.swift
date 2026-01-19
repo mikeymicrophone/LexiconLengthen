@@ -15,6 +15,7 @@ struct WordDetailView: View {
 
     @State private var readingMastery: WordReadingMastery?
     @State private var writingMastery: WordWritingMastery?
+    @State private var showingSpellingPractice = false
 
     var body: some View {
         ScrollView {
@@ -79,6 +80,13 @@ struct WordDetailView: View {
                         onCorrect: { recordWriting(correct: true) },
                         onIncorrect: { recordWriting(correct: false) }
                     )
+
+                    Button {
+                        showingSpellingPractice = true
+                    } label: {
+                        Label("Practice Spelling", systemImage: "pencil.and.outline")
+                    }
+                    .buttonStyle(.bordered)
                 }
 
                 // Pronunciations
@@ -226,6 +234,11 @@ struct WordDetailView: View {
         }
         .task {
             loadMastery()
+        }
+        .sheet(isPresented: $showingSpellingPractice) {
+            SpellingPracticeView(word: word) { wasCorrect in
+                recordWriting(correct: wasCorrect)
+            }
         }
     }
 
