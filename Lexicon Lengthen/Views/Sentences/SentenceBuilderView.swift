@@ -364,7 +364,7 @@ struct SentenceBuilderView: View {
             }
             if slotAssignments.indices.contains(index) {
                 slotAssignments[index] = word
-                selectedSlotIndex = index
+                advanceSelection(from: index)
                 return true
             }
             return false
@@ -424,6 +424,7 @@ struct SentenceBuilderView: View {
             return
         }
         slotAssignments[index] = word
+        advanceSelection(from: index)
         statusMessage = nil
     }
 
@@ -544,6 +545,20 @@ struct SentenceBuilderView: View {
             return replacement.prefix(1).uppercased() + replacement.dropFirst()
         }
         return replacement
+    }
+
+    private func advanceSelection(from index: Int) {
+        guard !slotAssignments.isEmpty else {
+            selectedSlotIndex = nil
+            return
+        }
+
+        let nextIndices = Array((index + 1)..<slotAssignments.count) + Array(0..<index)
+        if let next = nextIndices.first(where: { slotAssignments[$0] == nil }) {
+            selectedSlotIndex = next
+        } else {
+            selectedSlotIndex = nil
+        }
     }
 
     private func saveSentence() {
