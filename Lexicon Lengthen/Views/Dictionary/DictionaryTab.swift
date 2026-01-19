@@ -16,6 +16,7 @@ struct DictionaryTab: View {
     @State private var selectedWord: Word?
     @State private var showingAddWord = false
     @State private var showingTopics = false
+    @State private var showingBrowse = false
 
     var filteredSpellings: [Spelling] {
         if searchText.isEmpty {
@@ -45,6 +46,12 @@ struct DictionaryTab: View {
             .searchable(text: $searchText, prompt: "Search words")
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        showingBrowse = true
+                    } label: {
+                        Label("Browse", systemImage: "textformat.size")
+                    }
+
                     Button {
                         showingTopics = true
                     } label: {
@@ -76,6 +83,9 @@ struct DictionaryTab: View {
         }
         .sheet(isPresented: $showingTopics) {
             TopicsView()
+        }
+        .sheet(isPresented: $showingBrowse) {
+            WordBrowseView()
         }
     }
 }
