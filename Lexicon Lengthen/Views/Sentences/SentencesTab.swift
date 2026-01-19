@@ -20,7 +20,7 @@ struct SentencesTab: View {
                     NavigationLink {
                         SentenceBuilderView()
                     } label: {
-                        Label("Free Form", systemImage: "pencil")
+                        Label("Structured", systemImage: "pencil")
                     }
 
                     if !templates.isEmpty {

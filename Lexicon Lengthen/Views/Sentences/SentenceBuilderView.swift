@@ -9,14 +9,19 @@ import SwiftUI
 import SwiftData
 
 struct SentenceBuilderView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \Word.createdAt, order: .reverse) private var words: [Word]
     @Query private var lexiconEntries: [UserLexiconEntry]
     @Query(sort: \SentenceTemplate.createdAt, order: .reverse) private var templates: [SentenceTemplate]
+    @Query private var userProfiles: [UserProfile]
+
+    @EnvironmentObject private var audioManager: AudioManager
 
     @State private var selectedTemplateID: String?
     @State private var slotAssignments: [Word?] = []
     @State private var selectedSlotIndex: Int?
     @State private var searchText = ""
+    @State private var statusMessage: String?
 
     private var templateOptions: [TemplateOption] {
         var options: [TemplateOption] = templates.compactMap { template in
@@ -29,16 +34,95 @@ struct SentenceBuilderView: View {
             )
         }
 
-        if options.isEmpty {
-            options.append(TemplateOption(
-                id: "default:subject-verb-object-adverb",
+        let builtIns = builtInTemplates.filter { builtin in
+            !options.contains(where: { $0.templateText == builtin.templateText })
+        }
+        options.append(contentsOf: builtIns)
+
+        return options
+    }
+
+    private var builtInTemplates: [TemplateOption] {
+        [
+            TemplateOption(
+                id: "builtin:subject-verb-object-adverb",
                 name: "Subject Verb Object Adverb",
                 templateText: "The {subject} {verb} the {object} {adverb}.",
                 slots: ["subject", "verb", "object", "adverb"]
-            ))
-        }
-
-        return options
+            ),
+            TemplateOption(
+                id: "builtin:subject-verb",
+                name: "Subject Verb",
+                templateText: "The {subject} {verb}.",
+                slots: ["subject", "verb"]
+            ),
+            TemplateOption(
+                id: "builtin:subject-verb-object",
+                name: "Subject Verb Object",
+                templateText: "The {subject} {verb} the {object}.",
+                slots: ["subject", "verb", "object"]
+            ),
+            TemplateOption(
+                id: "builtin:subject-verb-adverb",
+                name: "Subject Verb Adverb",
+                templateText: "The {subject} {verb} {adverb}.",
+                slots: ["subject", "verb", "adverb"]
+            ),
+            TemplateOption(
+                id: "builtin:adjective-subject-verb",
+                name: "Adjective Subject Verb",
+                templateText: "The {adjective} {subject} {verb}.",
+                slots: ["adjective", "subject", "verb"]
+            ),
+            TemplateOption(
+                id: "builtin:adjective-subject-verb-object",
+                name: "Adjective Subject Verb Object",
+                templateText: "The {adjective} {subject} {verb} the {object}.",
+                slots: ["adjective", "subject", "verb", "object"]
+            ),
+            TemplateOption(
+                id: "builtin:subject-verb-adjective",
+                name: "Subject Verb Adjective",
+                templateText: "The {subject} {verb} {adjective}.",
+                slots: ["subject", "verb", "adjective"]
+            ),
+            TemplateOption(
+                id: "builtin:subject-verb-adjective-object",
+                name: "Subject Verb Adjective Object",
+                templateText: "The {subject} {verb} the {adjective} {object}.",
+                slots: ["subject", "verb", "adjective", "object"]
+            ),
+            TemplateOption(
+                id: "builtin:subject-verb-object-adjective",
+                name: "Subject Verb Object Adjective",
+                templateText: "The {subject} {verb} the {object} as {adjective}.",
+                slots: ["subject", "verb", "object", "adjective"]
+            ),
+            TemplateOption(
+                id: "builtin:subject-verb-noun",
+                name: "Subject Verb Noun",
+                templateText: "The {subject} {verb} a {noun}.",
+                slots: ["subject", "verb", "noun"]
+            ),
+            TemplateOption(
+                id: "builtin:subject-verb-object-noun",
+                name: "Subject Verb Object Noun",
+                templateText: "The {subject} {verb} the {object} near the {noun}.",
+                slots: ["subject", "verb", "object", "noun"]
+            ),
+            TemplateOption(
+                id: "builtin:subject-verb-object-after-noun",
+                name: "Subject Verb Object After Noun",
+                templateText: "The {subject} {verb} the {object} after the {noun}.",
+                slots: ["subject", "verb", "object", "noun"]
+            ),
+            TemplateOption(
+                id: "builtin:subject-verb-object-before-noun",
+                name: "Subject Verb Object Before Noun",
+                templateText: "The {subject} {verb} the {object} before the {noun}.",
+                slots: ["subject", "verb", "object", "noun"]
+            )
+        ]
     }
 
     private var selectedTemplate: TemplateOption? {
@@ -68,6 +152,23 @@ struct SentenceBuilderView: View {
             return displayWord(for: word, slotLabel: slotLabel)
         }
         return template.fill(with: words)
+    }
+
+    private var isSentenceComplete: Bool {
+        guard let template = selectedTemplate else { return false }
+        guard slotAssignments.count == template.slots.count else { return false }
+        return slotAssignments.allSatisfy { $0 != nil }
+    }
+
+    private var templateModel: SentenceTemplate? {
+        guard let selectedTemplateID,
+              selectedTemplateID.hasPrefix("template:") else {
+            return nil
+        }
+        let templateID = selectedTemplateID.replacingOccurrences(of: "template:", with: "")
+        return templates.first {
+            $0.persistentModelID.storeIdentifier == templateID
+        }
     }
 
     private var lexiconWords: [Word] {
@@ -118,6 +219,35 @@ struct SentenceBuilderView: View {
                     .font(.title3.weight(.semibold))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
+
+                if isSentenceComplete {
+                    HStack(spacing: 12) {
+                        Button {
+                            saveSentence()
+                        } label: {
+                            Label("Save Sentence", systemImage: "tray.and.arrow.down")
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button {
+                            if audioManager.isPlaying {
+                                audioManager.stopPlayback()
+                            } else {
+                                audioManager.speakText(sentencePreview)
+                            }
+                        } label: {
+                            Label("Narrate", systemImage: audioManager.isPlaying ? "stop.circle.fill" : "speaker.wave.2.fill")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+
+                if let statusMessage {
+                    Text(statusMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                }
             }
 
             if let template = selectedTemplate {
@@ -294,6 +424,7 @@ struct SentenceBuilderView: View {
             return
         }
         slotAssignments[index] = word
+        statusMessage = nil
     }
 
     private func slotCategory(for label: String) -> SlotCategory? {
@@ -413,6 +544,53 @@ struct SentenceBuilderView: View {
             return replacement.prefix(1).uppercased() + replacement.dropFirst()
         }
         return replacement
+    }
+
+    private func saveSentence() {
+        guard let template = selectedTemplate, isSentenceComplete else {
+            return
+        }
+
+        let words = slotAssignments.enumerated().map { index, word in
+            let slotLabel = template.slots.indices.contains(index) ? template.slots[index] : ""
+            return displayWord(for: word, slotLabel: slotLabel)
+        }
+        let wordIDs = slotAssignments.map { $0?.persistentModelID.storeIdentifier ?? "" }
+        let totalLetters = words.reduce(0) { count, text in
+            count + text.filter { $0.isLetter }.count
+        }
+
+        let points: Int
+        if let templateModel {
+            points = PointsCalculator.pointsForTemplateCompleted(
+                template: templateModel,
+                wordCount: words.count,
+                totalLetterCount: totalLetters
+            )
+        } else {
+            points = PointsCalculator.pointsForSentenceCreated(
+                wordCount: words.count,
+                totalLetterCount: totalLetters
+            )
+        }
+
+        let sentence = UserSentence(
+            sentenceText: sentencePreview,
+            templateID: selectedTemplateID,
+            wordIDs: wordIDs,
+            wordSpellings: words,
+            pointsEarned: points
+        )
+        modelContext.insert(sentence)
+
+        if let profile = userProfiles.first {
+            profile.recordSentenceCreated()
+            profile.addPoints(points)
+            profile.recordActivity()
+        }
+
+        try? modelContext.save()
+        statusMessage = "Saved sentence."
     }
 }
 

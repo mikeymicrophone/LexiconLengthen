@@ -17,7 +17,6 @@ struct DictionaryTab: View {
     @State private var selectedWord: Word?
     @State private var showingAddWord = false
     @State private var showingTopics = false
-    @State private var showingBrowse = false
     @State private var showingLibrary = false
     @State private var showingPreferences = false
 
@@ -72,21 +71,9 @@ struct DictionaryTab: View {
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
-                        showingPreferences = true
-                    } label: {
-                        Label("Preferences", systemImage: "gearshape")
-                    }
-
-                    Button {
                         showingLibrary = true
                     } label: {
                         Label("Library", systemImage: "books.vertical")
-                    }
-
-                    Button {
-                        showingBrowse = true
-                    } label: {
-                        Label("Browse", systemImage: "textformat.size")
                     }
 
                     Button {
@@ -99,6 +86,12 @@ struct DictionaryTab: View {
                         showingAddWord = true
                     } label: {
                         Label("Add Word", systemImage: "plus")
+                    }
+
+                    Button {
+                        showingPreferences = true
+                    } label: {
+                        Label("Preferences", systemImage: "gearshape")
                     }
                 }
             }
@@ -120,9 +113,6 @@ struct DictionaryTab: View {
         }
         .sheet(isPresented: $showingTopics) {
             TopicsView()
-        }
-        .sheet(isPresented: $showingBrowse) {
-            WordBrowseView()
         }
         .sheet(isPresented: $showingLibrary) {
             DeviceWordLibraryView()

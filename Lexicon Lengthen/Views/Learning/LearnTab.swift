@@ -13,6 +13,8 @@ struct LearnTab: View {
     @Query private var definitionMasteries: [DefinitionMastery]
     @Query private var pronunciationMasteries: [PronunciationMastery]
 
+    @State private var showingBrowse = false
+
     var dueForReview: [DefinitionMastery] {
         SpacedRepetitionEngine.itemsDueForReview(from: definitionMasteries)
     }
@@ -79,6 +81,18 @@ struct LearnTab: View {
                 }
             }
             .navigationTitle("Learn")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingBrowse = true
+                    } label: {
+                        Label("Browse", systemImage: "textformat.size")
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showingBrowse) {
+            WordBrowseView()
         }
     }
 }
