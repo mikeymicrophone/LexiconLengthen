@@ -18,7 +18,7 @@ struct SentencesTab: View {
             List {
                 Section("Create New") {
                     NavigationLink {
-                        Text("Sentence Builder - Coming Soon")
+                        SentenceBuilderView()
                     } label: {
                         Label("Free Form", systemImage: "pencil")
                     }
