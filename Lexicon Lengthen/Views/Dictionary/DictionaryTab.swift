@@ -19,26 +19,8 @@ struct DictionaryTab: View {
     @State private var showingTopics = false
     @State private var showingLibrary = false
     @State private var showingPreferences = false
-
-    private var lexiconWordIDs: Set<Word.ID> {
-        Set(lexiconEntries.compactMap { $0.word?.id })
-    }
-
-    var filteredSpellings: [Spelling] {
-        guard !lexiconWordIDs.isEmpty else {
-            return []
-        }
-        if searchText.isEmpty {
-            return spellings.filter { spelling in
-                spelling.words.contains { lexiconWordIDs.contains($0.id) }
-            }
-        }
-        let lowered = searchText.lowercased()
-        return spellings.filter { spelling in
-            spelling.textLowercase.contains(lowered) &&
-            spelling.words.contains { lexiconWordIDs.contains($0.id) }
-        }
-    }
+    @State private var filteredSpellings: [Spelling] = []
+    @State private var lexiconWordIDs: Set<Word.ID> = []
 
     var body: some View {
         NavigationSplitView {
@@ -119,6 +101,39 @@ struct DictionaryTab: View {
         }
         .sheet(isPresented: $showingPreferences) {
             DictionaryPreferencesView()
+        }
+        .task {
+            refreshFilteredSpellings()
+        }
+        .onChange(of: searchText) { _, _ in
+            refreshFilteredSpellings()
+        }
+        .onChange(of: spellings) { _, _ in
+            refreshFilteredSpellings()
+        }
+        .onChange(of: lexiconEntries) { _, _ in
+            refreshFilteredSpellings()
+        }
+    }
+
+    private func refreshFilteredSpellings() {
+        lexiconWordIDs = Set(lexiconEntries.compactMap { $0.word?.id })
+        guard !self.lexiconWordIDs.isEmpty else {
+            filteredSpellings = []
+            return
+        }
+
+        let lowered = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if lowered.isEmpty {
+            filteredSpellings = spellings.filter { spelling in
+                spelling.words.contains { self.lexiconWordIDs.contains($0.id) }
+            }
+            return
+        }
+
+        filteredSpellings = spellings.filter { spelling in
+            spelling.textLowercase.contains(lowered) &&
+            spelling.words.contains { self.lexiconWordIDs.contains($0.id) }
         }
     }
 }
