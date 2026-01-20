@@ -16,6 +16,8 @@ struct WordDetailView: View {
     @State private var readingMastery: WordReadingMastery?
     @State private var writingMastery: WordWritingMastery?
     @State private var showingSpellingPractice = false
+    @State private var isFetchingDefinition = false
+    @State private var definitionStatus: String?
 
     var body: some View {
         ScrollView {
@@ -130,11 +132,35 @@ struct WordDetailView: View {
                 }
 
                 // Definitions
-                if !word.definitions.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Definitions")
-                            .font(.headline)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Definitions")
+                        .font(.headline)
 
+                    if word.definitions.isEmpty {
+                        ContentUnavailableView(
+                            "No Definitions",
+                            systemImage: "text.book.closed",
+                            description: Text("You can generate one with Apple Intelligence.")
+                        )
+
+                        Button {
+                            fetchDefinition()
+                        } label: {
+                            if isFetchingDefinition {
+                                Label("Generating...", systemImage: "sparkles")
+                            } else {
+                                Label("Generate Definition", systemImage: "sparkles")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(isFetchingDefinition)
+
+                        if let definitionStatus {
+                            Text(definitionStatus)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
                         ForEach(Array(word.definitions.enumerated()), id: \.element.id) { index, definition in
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(alignment: .top) {
@@ -273,6 +299,48 @@ struct WordDetailView: View {
         mastery.recordAttempt(correct: correct)
         writingMastery = mastery
         try? modelContext.save()
+    }
+
+    private func fetchDefinition() {
+        guard !isFetchingDefinition else { return }
+        isFetchingDefinition = true
+        definitionStatus = nil
+
+        Task {
+            let suggestion = await DefinitionSuggestionService.suggestDefinition(
+                word: word.spellingText,
+                partOfSpeech: word.partOfSpeech
+            )
+            await MainActor.run {
+                isFetchingDefinition = false
+                guard word.definitions.isEmpty else {
+                    definitionStatus = "Definition already exists."
+                    return
+                }
+                guard let suggestion else {
+                    definitionStatus = "No definition available."
+                    return
+                }
+                let text = suggestion.definition.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else {
+                    definitionStatus = "No definition available."
+                    return
+                }
+                if word.definitions.contains(where: { $0.definitionText == text }) {
+                    definitionStatus = "Definition already exists."
+                    return
+                }
+                let definition = Definition(
+                    word: word,
+                    definitionText: text,
+                    exampleSentence: suggestion.example,
+                    sortOrder: word.definitions.count
+                )
+                modelContext.insert(definition)
+                try? modelContext.save()
+                definitionStatus = "Definition added."
+            }
+        }
     }
 
     private func makeReadingMastery() -> WordReadingMastery {
