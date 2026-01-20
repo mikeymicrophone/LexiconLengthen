@@ -46,4 +46,19 @@ enum LexiconWordService {
         context.delete(word)
         try? context.save()
     }
+
+    static func addToLexicon(
+        _ word: Word,
+        entries: [UserLexiconEntry],
+        in context: ModelContext
+    ) {
+        if entries.contains(where: { $0.word?.persistentModelID == word.persistentModelID }) {
+            return
+        }
+
+        let wordID = word.persistentModelID.storeIdentifier ?? ""
+        let entry = UserLexiconEntry(wordID: wordID, word: word)
+        context.insert(entry)
+        try? context.save()
+    }
 }

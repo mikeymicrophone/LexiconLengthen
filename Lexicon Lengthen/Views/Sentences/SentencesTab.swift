@@ -87,21 +87,25 @@ struct SentencesTab: View {
                         )
                     } else {
                         ForEach(filteredSentences) { sentence in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(sentence.sentenceText)
-                                    .font(.body)
+                            NavigationLink {
+                                SentenceDetailView(sentence: sentence)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(sentence.sentenceText)
+                                        .font(.body)
 
-                                HStack {
-                                    Text("\(sentence.wordCount) words")
-                                    Text("\(sentence.pointsEarned) pts")
-                                        .foregroundStyle(.orange)
-                                    Spacer()
-                                    Text(sentence.createdAt, style: .date)
+                                    HStack {
+                                        Text("\(sentence.wordCount) words")
+                                        Text("\(sentence.pointsEarned) pts")
+                                            .foregroundStyle(.orange)
+                                        Spacer()
+                                        Text(sentence.createdAt, style: .date)
+                                    }
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                                 }
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .padding(.vertical, 4)
                             }
-                            .padding(.vertical, 4)
                         }
                     }
                 }
